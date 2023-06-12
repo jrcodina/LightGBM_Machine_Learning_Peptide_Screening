@@ -1,33 +1,23 @@
 # (PART) Prepare Data {-}
 
-First we will extract the features of the full tetramer library which is the library we want to screen. 
+# Prepare data
+In order to keep a constant data treatment we will pre-treat all data files together.
 
 ## Load libraries
 ```{r, eval=F, libraries1}
-
-if (!require(dplyr)) {
-  install.packages("dplyr")
-}
-
-if (!require(Peptides)) {
-  install.packages("Peptides")
-}
-
-
 library(dplyr)
 library(Peptides)
 ```
 
 ## Obtain properties
-First we obtain the properties for the tetramer library. The function 'PCAprop' can be found at the end of this section. It extracts 99 properties form the [Peptides](https://cran.microsoft.com/snapshot/2022-01-28/web/packages/Peptides/index.html)  library for all tetramers. The function generates all posible combinaitons of the 20 natural amino acids for each position. If n=4 it will generate 20^4 = 160,000 peptides and their 99 properties. Take into account that this scalates exponentially, and a matrix of hexamers (64 Million peptide x 99 properties) can take along time to be generated and take all your ram. 
-
+First we obtain the properties for the tetra-peptide library. The function 'PCAprop' can be found at the end of this section. 
 ```{r,  eval=F, properties}
 #Full library
 tetra_160 <- PCAprop(n = 4)
 ```
 
 ## Normalize
-Then we normalize the full tetra-peptide library. Eventhough LighGBM doesn't require normalization, this step will help us if we want to test other algorithms. 
+Then we normalize the full tetra-peptide library. 
 ```{r,  eval=F, normalize}
 #Min-Max normalization
 normalize <- function(x){
@@ -44,7 +34,7 @@ return(XY_n)
 
 #Full libraries without scores
 tetra_160n <- normalize(tetra_160)
-write.csv(tetra_160n, "./data/Tetra_prop_n.csv", row.names = F)
+write.csv(tetra_160n, "../data/Properties/Tetra_prop_n.csv", row.names = F)
 
 ```
 
