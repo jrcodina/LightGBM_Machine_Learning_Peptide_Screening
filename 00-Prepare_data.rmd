@@ -1,0 +1,145 @@
+# (PART) Prepare Data {-}
+
+# Prepare data
+In order to keep a constant data treatment we will pre-treat all data files together.
+
+## Load libraries
+```{r, eval=F, libraries1}
+library(dplyr)
+library(Peptides)
+```
+
+## Obtain properties
+First we obtain the properties for the tetra-peptide library. The function 'PCAprop' can be found at the end of this section. 
+```{r,  eval=F, properties}
+#Full library
+tetra_160 <- PCAprop(n = 4)
+```
+
+## Normalize
+Then we normalize the full tetra-peptide library. 
+```{r,  eval=F, normalize}
+#Min-Max normalization
+normalize <- function(x){
+X <- x[,-1]
+Y <- x[,1]
+  
+max = apply(X , 2 , max)
+min = apply(X, 2 , min)
+Xn = as.data.frame(scale(X, center = min, scale = max - min))
+
+XY_n <- cbind(Y, Xn)
+return(XY_n)
+}
+
+#Full libraries without scores
+tetra_160n <- normalize(tetra_160)
+write.csv(tetra_160n, "../data/Properties/Tetra_prop_n.csv", row.names = F)
+
+```
+
+## Function: PCAprop
+The function PCAprop uses the sequence properties from the library _Peptides_. It takes the following arguments:
+
+* **_n_**: Number of residues per sequence. n = 4 for tetra-peptide library, n = 5 for penta-peptide library, and so on. 
+* **_pH_**: pH used to calculate the charge. DEFAULT = 7.4.
+* **_custom.list_**: Boolean element indicating whether you want to use a customize library instead of the one generated with _n_. If TRUE, you need to indicate the library in PeList. DEFAULT = FALSE. 
+* **_PeList_**: A vector or data.frame containing the customize library you want to obtain the properties of. Only necesary if you do _custom.list_ = *TRUE*. 
+* **_rem.cys_, _rem.met_, _rem.sali_**: Boolean indicating whether you want to remove the sequences with Cysteine (_rem.cys_), Methionine (_rem.met_), or with 2 or more small aliphatic residues (_rem.sali_), or not. DEFAULT = FALSE.
+* **_norm_**: Boolean indicating whether you want to normalize the properties based on min-max normalizaiton for each property. DEFAULT = F
+
+```{r,  eval=F, PCAprop}
+PCAprop <- function(n, pH = 7.4, custom.list = FALSE, PeList, rem.cys = F, rem.met = F, rem.sali = F, norm = F){
+  
+  system.time({
+    if (custom.list == FALSE){PeList <- expand.grid(rep(list(Peptides::aaList()), n))}
+    
+    if (data.class(PeList) == "data.frame" & !is.null(ncol(PeList))){
+      PeList <- paste(PeList[,1],
+                      PeList[,2],
+                      PeList[,3],
+                      if (n >= 4){PeList[,4]},
+                      if (n >= 5){PeList[,5]},
+                      if (n >= 6){PeList[,6]},
+                      if (n >= 7){PeList[,7]},
+                      sep = "")
+    }
+    
+    if (rem.cys == TRUE){PeList <- PeList[!grepl("C", PeList)]} # Remove sequences with Cys
+    
+    if (rem.met == TRUE){PeList <- PeList[!grepl("M", PeList)]} # Remove sequences with Met
+    
+    if (rem.sali == TRUE) {
+      
+      remove <- which(nchar(gsub("[AGILV]", "", PeList)) <= 2)  # Remove sequences with 2 or more small aliphatic amino acids
+     
+       if (length(remove) != 0) {
+         PeList <- PeList[-remove]
+       }
+      }
+    
+    peptides <- cbind(PeList,
+                      as.data.frame(do.call(rbind, Peptides::crucianiProperties(PeList))),
+                      as.data.frame(do.call(rbind, Peptides::fasgaiVectors(PeList))),
+                      as.data.frame(do.call(rbind, Peptides::kideraFactors(PeList))),
+                      as.data.frame(do.call(rbind, Peptides::protFP(PeList))),
+                      as.data.frame(do.call(rbind, Peptides::tScales(PeList))),
+                      as.data.frame(do.call(rbind, Peptides::vhseScales(PeList))),
+                      as.data.frame(do.call(rbind, Peptides::zScales(PeList))))
+    
+    pI <- cbind(pI_EMBOS = Peptides::pI(PeList, pKscale = "EMBOSS"),
+                pI_Bjellqvist = Peptides::pI(PeList, pKscale = "Bjellqvist"),
+                pI_Lehninger = Peptides::pI(PeList, pKscale = "Lehninger"),
+                pI_Murray = Peptides::pI(PeList, pKscale = "Murray"),
+                pI_Rodwell = Peptides::pI(PeList, pKscale = "Rodwell"),
+                pI_Sillero = Peptides::pI(PeList, pKscale = "Sillero"))
+    
+    mShft_15n <- Peptides::massShift(PeList, label = "15n", aaShift = NULL, monoisotopic = TRUE)
+    
+    charges <- cbind(Peptides::charge(PeList, pH = pH, pKscale = "EMBOSS"))
+    
+    hydrophobicity_indexes <- c("Aboderin", "AbrahamLeo", "BlackMould", 
+                                "BullBreese", "Casari", "Chothia", "Cid", 
+                                "Cowan3.4", "Cowan7.5", "Eisenberg", "Fasman", 
+                                "Fauchere", "Goldsack", "Guy", "HoppWoods", 
+                                "interfaceScale_pH2", "interfaceScale_pH8", "Janin", 
+                                "Jones", "Juretic", "Kuhn", "KyteDoolittle", 
+                                "Levitt", "Manavalan", "Miyazawa", "octanolScale_pH2", 
+                                "oiScale_pH2", "oiScale_pH8", "Parker", "Ponnuswamy", 
+                                "Prabhakaran", "Rao", "Rose", "Roseman", "Sweet", 
+                                "Tanford", "Welling", "Wilson", "Wolfenden", 
+                                "Zimmerman")
+    
+    hydrophobicity <- list()
+    for (i in 1:length(hydrophobicity_indexes)) {
+      hydrophobicity[[i]] <- Peptides::hydrophobicity (PeList, scale = hydrophobicity_indexes[i])
+      names(hydrophobicity)[[i]] <- paste0("hb_",hydrophobicity_indexes[i])
+    }
+    
+    
+    peptides <- cbind(peptides, data.frame(aIndex = Peptides::aIndex(PeList),
+                                           Boman = Peptides::boman(PeList),
+                                           chrg_EMBOSS = charges,
+                                           hmoment1 = Peptides::hmoment(PeList, angle = 100, window = 11),
+                                           hmoment2 = Peptides::hmoment(PeList, angle = 160, window = 11),
+                                           hydrophobicity,
+                                           instaIndex = Peptides::instaIndex(PeList),
+                                           mShft_15n,
+                                           mw1 = Peptides::mw(PeList, monoisotopic = TRUE),
+                                           pI))
+    if (norm == T) {
+        X <- peptides[,-1]
+        Sequence <- peptides[,1]
+          
+        max = apply(X , 2 , max)
+        min = apply(X, 2 , min)
+        Xn = as.data.frame(scale(X, center = min, scale = max - min))
+        
+        peptides <- cbind(Sequence, Xn)
+      }
+    
+    return(peptides)
+  })
+}
+
+```
