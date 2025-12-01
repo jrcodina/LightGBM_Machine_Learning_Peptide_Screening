@@ -21,7 +21,7 @@ The project implements a **High-Throughput Virtual Screening (HTVS)** pipeline t
 
 The workflow employs a "Smart Screening" strategy to predict high-affinity binders without exhaustively simulating the entire chemical space:
 
-![Figure 1: Overview of the LightGBM and Molecular Docking Process](images/pipeline_workflow.png)
+![Figure 1: Overview of the LightGBM and Molecular Docking Process](Graphical_ABS.png)
 
 1.  **Initial Sampling:** Perform molecular docking on a random **1% subset** of the peptide library.
 2.  **Feature Extraction:** Extract **99 sequence-based physicochemical features** (e.g., Z-scales, Kidera factors, Cruciani properties) using the `Peptides` R package.
